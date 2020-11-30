@@ -1,32 +1,34 @@
 clc; clear;
 addpath ..
-addpath '/home/alex/Documents/MATLAB/Examples/R2019b/robotics/CheckForEnvironmentalCollisionsWithManipulatorsExample'
-
+addpath /home/alex/Documents/MATLAB/Examples/R2019b/robotics/CheckForEnvironmentalCollisionsWithManipulatorsExample
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 %                       Load Kuka iiwa model
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 robot = importrobot("iiwa7.urdf");
 robot.DataFormat = 'column';
 
-collisionArrayFromVisuals = exampleHelperManipCollisionsFromVisuals(robot);
-
-config = [0 -pi/4 pi 0.9*pi 0 -pi/2 0]';
-[isCollision, selfCollisionPairIdx] = exampleHelperManipCheckCollisions(robot, collisionArrayFromVisuals, {}, config, true);
-disp(isCollision)
-
-show(robot,config);
-exampleHelperHighlightCollisionBodies(robot, selfCollisionPairIdx, gca);
-
-return;
+robotCollisionModel = exampleHelperManipCollisionsFromVisuals(robot);
+buildEnvironment;
 
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 %           Set problem start and target configurations
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 t0 = 0;         % Initial Time
-tF = 3.0;       % Final Time
-x0 = [0;0;0;0;0;0;0;0;0;0;0;0;0;0];     % Initial State - Order : [q, dq]
-xF = [pi/4;-pi/8;pi/4;-pi/3;pi/6;pi/8;-pi/2;0;0;0;0;0;0;0];     % Final State
+tF = 5.0;       % Final Time
+x0 = [pi/4;pi/8;0;0;0;0;0;0;0;0;0;0;0;0];     % Initial State - Order : [q, dq]
+xF = [0;pi/8;0;-pi/4;0;pi/4;0;0;0;0;0;0;0;0];     % Final State
 
+% exampleHelperVisualizeCollisionEnvironment(worldCollisionModel);
+% % show(robot, xF(1:7));
+% 
+% xA = [pi/2;pi/16;0;-pi/16;0;pi/16;pi/6;pi/32;0;-pi/32;0;pi/32];
+% xB = [pi/6;pi/6;0;-pi/16;0;pi/16;pi/6;pi/32;0;-pi/32;0;pi/32];
+% x = [x0(1:7), xA(1:7), xB(1:7)];
+% show(robot, xA(1:7));
+% 
+% [non, cd] = kukaCheckCD(robot, robotCollisionModel, worldCollisionModel,  [x, xF(1:7)])
+% 
+% return;
 
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 %                       Set up function handles                           %
@@ -36,6 +38,8 @@ problem.func.dynamics = @(t,x,u)( kukaDynamics(x,u,robot) );
 
 % problem.func.pathObj = @(t,x,u)( ones(size(t)) );  % Time Constraint
 problem.func.pathObj = @(t,x,u)(sum(u.^2));  %Simple torque-squared
+
+problem.func.pathCst = @(t,x,u)( kukaCheckCD(robot, robotCollisionModel, worldCollisionModel, [x(1:7, :), xF(1:7)]) );
 
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 %               Set up bounds on time, state, and control                 %
@@ -98,27 +102,39 @@ problem.options.trapezoid.nGrid = 5;
 %              Create an initial guess for the trajectory                 %
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 
-tA = t0 + 0.25*(tF-t0);
-tB = t0 + 0.75*(tF-t0);
+% tA = t0 + 0.25*(tF-t0);
+% tB = t0 + 0.75*(tF-t0);
+% 
+% % xA = x0 + 0.25*(xF-x0);
+% % xB = x0 + 0.75*(xF-x0);
+% 
+% xA = [pi/2;pi/16;0;-pi/16;0;pi/16;pi/6;pi/32;0;-pi/32;0;pi/32;0;0];
+% xB = [pi/6;pi/6;0;-pi/16;0;pi/16;pi/6;pi/32;0;-pi/32;0;pi/32;0;0];
 
-xA = x0 + 0.25*(xF-x0);
-xB = x0 + 0.75*(xF-x0);
+% u0 = zeros(7,1);
 
-u0 = zeros(7,1);
+% problem.guess.time = [t0, tA, tB, tF];
+% problem.guess.state = [x0, xA, xB, xF];
+% problem.guess.control = [u0, u0, u0, u0];
 
-problem.guess.time = [t0, tA, tB, tF];
-problem.guess.state = [x0, xA, xB, xF];
-problem.guess.control = [u0, u0, u0, u0];
+load('initial_guess_t', 't');
+load('initial_guess_x', 'z');
+load('initial_guess_u', 'u');
+
+problem.guess.time = t;
+problem.guess.state = z;
+problem.guess.control = u;
+
 
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 %                           Solve!                                        %
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
-
-% soln = optimTraj(problem);
-% 
-% % Interpolate the solution on a uniform grid for plotting and animation:
-% tGrid = soln(end).grid.time;
-% t = linspace(tGrid(1),tGrid(end),100);
-% z = soln(end).interp.state(t);
-% u = soln(end).interp.control(t);
+tic
+soln = optimTraj(problem);
+toc
+% Interpolate the solution on a uniform grid for plotting and animation:
+tGrid = soln(end).grid.time;
+t = linspace(tGrid(1),tGrid(end),100);
+z = soln(end).interp.state(t);
+u = soln(end).interp.control(t);
 

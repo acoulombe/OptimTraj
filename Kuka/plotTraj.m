@@ -24,6 +24,7 @@ xlabel("time (s)");
 ylabel("Torque (Nm)");
 
 subplot(2,2,4);
+exampleHelperVisualizeCollisionEnvironment(worldCollisionModel);
 for i=1:length(t)
     robot.show(x(:,i), 'PreservePlot', false, 'Frames','off') ;
     drawnow;

@@ -7,8 +7,8 @@ platform2.Pose = trvec2tform([0.5 0.2 0.2]);
 
 % Add a light fixture, modeled as a sphere
 lightFixture = collisionSphere(0.1);
-lightFixture.Pose = trvec2tform([.2 0 1]);
+lightFixture.Pose = trvec2tform([0.2 0 1]);
 
 % Store in a cell array for collision-checking
-worldCollisionArray = {platform1 platform2 lightFixture};
+worldCollisionModel = {platform1 platform2 lightFixture};
 
